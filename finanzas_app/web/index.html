@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Finanzas Pareja">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="finanzas_app">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <title>Finanzas Pareja</title>
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  
+  <script>
+    // Tu configuración de Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyAeviSI6VfGJuEwffxNFuTmvS5p4zjYfZM",
+      authDomain: "finanzas-pareja-123bf.firebaseapp.com",
+      projectId: "finanzas-pareja-123bf",
+      storageBucket: "finanzas-pareja-123bf.firebasestorage.app",
+      messagingSenderId: "289380627307",
+      appId: "1:289380627307:web:5d95c73b01c1b59f7ad22e"
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    
+    // Configuración explícita para evitar el uso de demo-key
+    window.firebase = firebase;
+    
+    console.log('✅ Firebase inicializado correctamente');
+    console.log('🔑 API Key:', firebaseConfig.apiKey);
+    console.log('📁 Project ID:', firebaseConfig.projectId);
+  </script>
+</head>
+<body>
+  <script src="main.dart.js" type="application/javascript"></script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+name: finanzas_app
+description: A new Flutter project.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=2.19.6 <3.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.2.2
+  cupertino_icons: ^1.0.2
+
+  # Firebase dependencies - VERSIONES COMPATIBLES CON DART 2.19.6
+  firebase_core: ^2.30.0
+  cloud_firestore: ^4.15.4
+  firebase_auth: ^4.17.3
+  intl: ^0.18.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  # assets:
+  #   - assets/images/  # ✅ COMENTA ESTA LÍNEA O CREA LA CARPETA
