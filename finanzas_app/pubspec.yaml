@@ -5,26 +5,29 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=2.19.6 <3.0.0'
+  sdk: '>=3.0.0 <4.0.0'  # ✅ ACTUALIZADO para Flutter moderno
 
 dependencies:
   flutter:
     sdk: flutter
-  shared_preferences: ^2.2.2
-  cupertino_icons: ^1.0.2
-
-  # Firebase dependencies - VERSIONES COMPATIBLES CON DART 2.19.6
-  firebase_core: ^2.30.0
-  cloud_firestore: ^4.15.4
-  firebase_auth: ^4.17.3
-  intl: ^0.18.1
+  
+  # Firebase dependencies - VERSIONES ACTUALIZADAS
+  firebase_core: ^4.2.0
+  cloud_firestore: ^6.0.3
+  firebase_auth: ^6.1.1
+  
+  # Otras dependencias actualizadas
+  shared_preferences: ^2.5.3
+  cupertino_icons: ^1.0.8
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
+  
   # assets:
-  #   - assets/images/  # ✅ COMENTA ESTA LÍNEA O CREA LA CARPETA
+  #   - assets/images/  # ✅ COMENTADO temporalmente

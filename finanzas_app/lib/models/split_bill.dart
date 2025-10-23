@@ -1,44 +1,43 @@
 class SplitBill {
   final String id;
-  final String title;
+  final String description;
   final double totalAmount;
+  final List<dynamic> participants;
+  final dynamic paidBy;
   final DateTime date;
-  final List<Person> people;
-  final String? description;
+  final String? groupId;
 
   SplitBill({
     required this.id,
-    required this.title,
+    required this.description,
     required this.totalAmount,
+    required this.participants,
+    required this.paidBy,
     required this.date,
-    required this.people,
-    this.description,
+    this.groupId,
   });
-
-  double get splitAmount {
-    if (people.isEmpty) return 0;
-    return totalAmount / people.length;
-  }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'title': title,
-      'totalAmount': totalAmount,
-      'date': date.toIso8601String(),
-      'people': people.map((person) => person.toMap()).toList(),
       'description': description,
+      'totalAmount': totalAmount,
+      'participants': participants.map((p) => p is Map ? p : p.toMap()).toList(),
+      'paidBy': paidBy is Map ? paidBy : paidBy?.toMap(),
+      'date': date.millisecondsSinceEpoch,
+      'groupId': groupId,
     };
   }
 
   factory SplitBill.fromMap(Map<String, dynamic> map) {
     return SplitBill(
-      id: map['id'],
-      title: map['title'],
-      totalAmount: map['totalAmount'].toDouble(),
-      date: DateTime.parse(map['date']),
-      people: List<Person>.from(map['people'].map((x) => Person.fromMap(x))),
-      description: map['description'],
+      id: map['id'] ?? '',
+      description: map['description'] ?? '',
+      totalAmount: (map['totalAmount'] ?? 0).toDouble(),
+      participants: map['participants'] ?? [],
+      paidBy: map['paidBy'],
+      date: DateTime.fromMillisecondsSinceEpoch(map['date'] ?? 0),
+      groupId: map['groupId'],
     );
   }
 }
