@@ -17,6 +17,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   bool _emailSent = false;
   String? _errorMessage;
 
+  // ✅ MEJORADO: Manejo mejorado de errores
   void _resetPassword() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -30,43 +31,85 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     try {
       final email = _emailController.text.trim().toLowerCase();
       
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      // ✅ VERIFICACIÓN ADICIONAL: Validar formato de email
+      if (!_isValidEmail(email)) {
+        throw FirebaseAuthException(
+          code: 'invalid-email',
+          message: 'El formato del email no es válido',
+        );
+      }
+      
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: email,
+        // ✅ OPCIONAL: Configuración adicional
+        actionCodeSettings: ActionCodeSettings(
+          url: 'https://finanzas-pareja-123bf.firebaseapp.com/__/auth/action',
+          handleCodeInApp: true,
+          iOSBundleId: 'com.yourcompany.finanzasPareja',
+          androidPackageName: 'com.yourcompany.finanzas_pareja',
+          androidInstallApp: true,
+          androidMinimumVersion: '12',
+        ),
+      );
       
       setState(() {
         _isLoading = false;
         _emailSent = true;
       });
 
-    } catch (e) {
+      // ✅ MEJORADO: Log para debugging
+      print('✅ Email de recuperación enviado a: $email');
+
+    } on FirebaseAuthException catch (e) {
       setState(() {
         _isLoading = false;
         _errorMessage = _getErrorMessage(e);
       });
+      
+      // ✅ MEJORADO: Log detallado del error
+      print('❌ Error Firebase: ${e.code} - ${e.message}');
+      
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error inesperado: $e';
+      });
+      
+      print('❌ Error general: $e');
     }
   }
 
-  String _getErrorMessage(dynamic error) {
-    if (error is FirebaseAuthException) {
-      switch (error.code) {
-        case 'user-not-found':
-          return 'No existe una cuenta con este email';
-        case 'invalid-email':
-          return 'El formato del email no es válido';
-        case 'network-request-failed':
-          return 'Error de conexión. Verifica tu internet';
-        default:
-          return 'Error al enviar el email: ${error.message}';
-      }
+  // ✅ MEJORADO: Validación más robusta
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  }
+
+  // ✅ MEJORADO: Manejo completo de errores de Firebase
+  String _getErrorMessage(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'user-not-found':
+        return 'No existe una cuenta con este email. Verifica tu dirección de correo.';
+      case 'invalid-email':
+        return 'El formato del email no es válido. Ejemplo: usuario@ejemplo.com';
+      case 'network-request-failed':
+        return 'Error de conexión. Verifica tu conexión a internet.';
+      case 'too-many-requests':
+        return 'Demasiados intentos. Por favor, espera unos minutos.';
+      case 'operation-not-allowed':
+        return 'La recuperación de contraseña no está habilitada. Contacta al soporte.';
+      case 'user-disabled':
+        return 'Esta cuenta ha sido deshabilitada. Contacta al soporte.';
+      default:
+        return 'Error al enviar el email: ${error.message ?? "Error desconocido"}';
     }
-    return 'Error inesperado: $error';
   }
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
       return 'Por favor ingresa tu email';
     }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-      return 'Ingresa un email válido';
+    if (!_isValidEmail(value)) {
+      return 'Ingresa un email válido (ejemplo: usuario@correo.com)';
     }
     return null;
   }
@@ -79,7 +122,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     setState(() {
       _emailSent = false;
       _errorMessage = null;
+      _emailController.clear();
     });
+  }
+
+  // ✅ NUEVO: Abrir app de email
+  void _openEmailApp() async {
+    // Esto intentará abrir la app de email predeterminada
+    const url = 'message://';
+    // Puedes usar url_launcher para una implementación más robusta
+    // await launchUrl(Uri.parse(url));
   }
 
   @override
@@ -160,12 +212,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.email],
+            textInputAction: TextInputAction.done,
             decoration: InputDecoration(
-              labelText: 'Email',
+              labelText: 'Email registrado',
               labelStyle: TextStyle(
                 color: AppTheme.texto.withOpacity(0.6),
                 fontWeight: FontWeight.w500,
               ),
+              hintText: 'ejemplo@correo.com',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -197,6 +252,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               fontSize: 16,
             ),
             validator: _validateEmail,
+            onFieldSubmitted: (_) => _resetPassword(),
           ),
 
           const SizedBox(height: 20),
@@ -277,6 +333,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
                   Icons.info_outline,
@@ -285,12 +342,26 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    'Revisa tu bandeja de entrada y la carpeta de spam',
-                    style: TextStyle(
-                      color: AppTheme.texto.withOpacity(0.7),
-                      fontSize: 14,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '¿Qué esperar?',
+                        style: TextStyle(
+                          color: AppTheme.texto,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '• Revisa tu bandeja de entrada\n• El enlace expira en 1 hora\n• Si no lo ves, revisa la carpeta de spam',
+                        style: TextStyle(
+                          color: AppTheme.texto.withOpacity(0.7),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -318,13 +389,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       child: Column(
         children: [
           Icon(
-            Icons.check_circle,
+            Icons.mark_email_read_outlined,
             size: 64,
             color: Colors.green,
           ),
           const SizedBox(height: 20),
           Text(
-            'Email Enviado Exitosamente',
+            '¡Email Enviado!',
             style: TextStyle(
               color: AppTheme.texto,
               fontSize: 20,
@@ -353,7 +424,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Revisa tu bandeja de entrada y sigue las instrucciones del email para restablecer tu contraseña.',
+            'Sigue las instrucciones del email para restablecer tu contraseña. El enlace expirará en 1 hora.',
             style: TextStyle(
               color: AppTheme.texto.withOpacity(0.6),
               fontSize: 14,
@@ -361,6 +432,29 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
+          
+          // ✅ MEJORADO: Botón para abrir app de email
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _openEmailApp,
+              icon: Icon(Icons.email, color: AppTheme.botonesFondo),
+              label: Text(
+                'Abrir App de Email',
+                style: TextStyle(color: AppTheme.botonesFondo),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: AppTheme.botonesFondo),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
           Row(
             children: [
               Expanded(

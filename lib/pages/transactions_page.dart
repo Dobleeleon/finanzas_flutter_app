@@ -30,9 +30,12 @@ class _TransactionsPageState extends State<TransactionsPage> {
   String _searchQuery = '';
   
   String _filterType = 'all';
-  String _filterCategory = 'all';
+  String _selectedCategory = 'all';
+  String _selectedDateFilter = 'all';
   double _minAmount = 0;
   double _maxAmount = 10000000;
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   final List<String> _categoryOptions = [
     'all', 'Comida', 'Transporte', 'Entretenimiento', 
@@ -102,8 +105,19 @@ class _TransactionsPageState extends State<TransactionsPage> {
       filtered = filtered.where((transaction) => transaction['type'] == _filterType).toList();
     }
 
-    if (_filterCategory != 'all') {
-      filtered = filtered.where((transaction) => transaction['category'] == _filterCategory).toList();
+    if (_selectedCategory != 'all') {
+      filtered = filtered.where((transaction) => transaction['category'] == _selectedCategory).toList();
+    }
+
+    // ✅ AGREGAR FILTRADO POR FECHAS
+    if (_selectedDateFilter == 'custom' && _startDate != null && _endDate != null) {
+      filtered = filtered.where((transaction) {
+        final transactionDate = _parseTimestamp(transaction['date'] ?? transaction['createdAt']);
+        return transactionDate.isAfter(_startDate!.subtract(const Duration(days: 1))) &&
+               transactionDate.isBefore(_endDate!.add(const Duration(days: 1)));
+      }).toList();
+    } else if (_selectedDateFilter != 'all' && _selectedDateFilter != 'custom') {
+      filtered = _filterByDateRange(filtered, _selectedDateFilter);
     }
 
     filtered = filtered.where((transaction) {
@@ -116,13 +130,43 @@ class _TransactionsPageState extends State<TransactionsPage> {
     });
   }
 
+  List<Map<String, dynamic>> _filterByDateRange(List<Map<String, dynamic>> transactions, String dateFilter) {
+    final now = DateTime.now();
+    DateTime startDate;
+
+    switch (dateFilter) {
+      case 'today':
+        startDate = DateTime(now.year, now.month, now.day);
+        break;
+      case 'week':
+        startDate = now.subtract(Duration(days: now.weekday - 1));
+        break;
+      case 'month':
+        startDate = DateTime(now.year, now.month, 1);
+        break;
+      case 'year':
+        startDate = DateTime(now.year, 1, 1);
+        break;
+      default:
+        return transactions;
+    }
+
+    return transactions.where((transaction) {
+      final transactionDate = _parseTimestamp(transaction['date'] ?? transaction['createdAt']);
+      return transactionDate.isAfter(startDate.subtract(const Duration(days: 1)));
+    }).toList();
+  }
+
   void _resetFilters() {
     setState(() {
       _searchQuery = '';
       _filterType = 'all';
-      _filterCategory = 'all';
+      _selectedCategory = 'all';
+      _selectedDateFilter = 'all';
       _minAmount = 0;
       _maxAmount = 10000000;
+      _startDate = null;
+      _endDate = null;
     });
     _applyFilters();
   }
@@ -133,32 +177,36 @@ class _TransactionsPageState extends State<TransactionsPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => FilterModal(
-        categories: _categoryOptions.map((category) {
-          return category == 'all' ? 'Todas las categorías' : category;
-        }).toList(),
-        selectedCategory: _filterCategory == 'all' ? 'Todas las categorías' : _filterCategory,
-        selectedDateFilter: 'all',
+        categories: _categoryOptions,
+        selectedCategory: _selectedCategory,
+        selectedDateFilter: _selectedDateFilter,
         minAmount: _minAmount,
         maxAmount: _maxAmount,
-        onCategoryChanged: (selected) {
-          String internalValue;
-          if (selected == 'Todas las categorías') {
-            internalValue = 'all';
-          } else {
-            internalValue = selected;
-          }
+        startDate: _startDate,
+        endDate: _endDate,
+        onCategoryChanged: (category) {
           setState(() {
-            _filterCategory = internalValue;
+            _selectedCategory = category;
           });
           _applyFilters();
         },
         onDateFilterChanged: (dateFilter) {
-          // No usado en transacciones por ahora
+          setState(() {
+            _selectedDateFilter = dateFilter;
+          });
+          _applyFilters();
         },
         onAmountRangeChanged: (min, max) {
           setState(() {
             _minAmount = min;
             _maxAmount = max;
+          });
+          _applyFilters();
+        },
+        onDateRangeChanged: (start, end) {
+          setState(() {
+            _startDate = start;
+            _endDate = end;
           });
           _applyFilters();
         },
@@ -567,7 +615,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            _searchQuery.isNotEmpty || _filterType != 'all' || _filterCategory != 'all' 
+            _searchQuery.isNotEmpty || _filterType != 'all' || _selectedCategory != 'all' 
                 ? 'Prueba ajustar los filtros'
                 : 'Agrega tu primera transacción',
             style: TextStyle(
@@ -575,7 +623,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
             ),
           ),
           const SizedBox(height: 16),
-          if (_searchQuery.isNotEmpty || _filterType != 'all' || _filterCategory != 'all')
+          if (_searchQuery.isNotEmpty || _filterType != 'all' || _selectedCategory != 'all')
             ElevatedButton(
               onPressed: _resetFilters,
               style: ElevatedButton.styleFrom(

@@ -29,9 +29,12 @@ class _BillsPageState extends State<BillsPage> {
   bool _isLoading = true;
   
   String _filterStatus = 'all';
-  String _filterCategory = 'all';
+  String _selectedCategory = 'all'; // ✅ CAMBIAR NOMBRE
+  String _selectedDateFilter = 'all'; // ✅ AGREGAR
   double _minAmount = 0;
   double _maxAmount = 10000000;
+  DateTime? _startDate; // ✅ AGREGAR
+  DateTime? _endDate;   // ✅ AGREGAR
 
   final List<String> _categoryOptions = [
     'all', 'Servicios', 'Alquiler', 'Préstamos', 'Impuestos', 'Seguros', 'Otros'
@@ -66,7 +69,7 @@ class _BillsPageState extends State<BillsPage> {
             'dueDate': dueDate,
             'category': bill['category'] ?? 'Otros',
             'paid': bill['paid'] ?? false,
-            'paidBy': bill['paidBy'] ?? '', // Nuevo campo para saber quién pagó
+            'paidBy': bill['paidBy'] ?? '',
             'paidByName': bill['paidByName'] ?? '',
             'paidAt': bill['paidAt'] != null ? (bill['paidAt'] as Timestamp).toDate() : null,
             'notes': bill['notes'] ?? '',
@@ -114,8 +117,19 @@ class _BillsPageState extends State<BillsPage> {
       filtered = filtered.where((bill) => bill['paid'] == isPaid).toList();
     }
 
-    if (_filterCategory != 'all') {
-      filtered = filtered.where((bill) => bill['category'] == _filterCategory).toList();
+    if (_selectedCategory != 'all') {
+      filtered = filtered.where((bill) => bill['category'] == _selectedCategory).toList();
+    }
+
+    // ✅ AGREGAR FILTRADO POR FECHAS
+    if (_selectedDateFilter == 'custom' && _startDate != null && _endDate != null) {
+      filtered = filtered.where((bill) {
+        final dueDate = bill['dueDate'] as DateTime;
+        return dueDate.isAfter(_startDate!.subtract(const Duration(days: 1))) &&
+               dueDate.isBefore(_endDate!.add(const Duration(days: 1)));
+      }).toList();
+    } else if (_selectedDateFilter != 'all' && _selectedDateFilter != 'custom') {
+      filtered = _filterByDateRange(filtered, _selectedDateFilter);
     }
 
     filtered = filtered.where((bill) {
@@ -125,6 +139,33 @@ class _BillsPageState extends State<BillsPage> {
     setState(() {
       _filteredBills = filtered;
     });
+  }
+
+  List<Map<String, dynamic>> _filterByDateRange(List<Map<String, dynamic>> bills, String dateFilter) {
+    final now = DateTime.now();
+    DateTime startDate;
+
+    switch (dateFilter) {
+      case 'today':
+        startDate = DateTime(now.year, now.month, now.day);
+        break;
+      case 'week':
+        startDate = now.subtract(Duration(days: now.weekday - 1));
+        break;
+      case 'month':
+        startDate = DateTime(now.year, now.month, 1);
+        break;
+      case 'year':
+        startDate = DateTime(now.year, 1, 1);
+        break;
+      default:
+        return bills;
+    }
+
+    return bills.where((bill) {
+      final dueDate = bill['dueDate'] as DateTime;
+      return dueDate.isAfter(startDate.subtract(const Duration(days: 1)));
+    }).toList();
   }
 
   String _formatCurrency(double amount) {
@@ -171,7 +212,6 @@ class _BillsPageState extends State<BillsPage> {
     }
   }
 
-  // NUEVO MÉTODO: Obtener nombre de quién pagó la factura
   String _getPaidByDisplayName(Map<String, dynamic> bill) {
     final paidBy = bill['paidBy'] ?? '';
     final paidByName = bill['paidByName'] ?? '';
@@ -188,9 +228,12 @@ class _BillsPageState extends State<BillsPage> {
   void _resetFilters() {
     setState(() {
       _filterStatus = 'all';
-      _filterCategory = 'all';
+      _selectedCategory = 'all';
+      _selectedDateFilter = 'all';
       _minAmount = 0;
       _maxAmount = 10000000;
+      _startDate = null;
+      _endDate = null;
     });
     _applyFilters();
   }
@@ -201,44 +244,48 @@ class _BillsPageState extends State<BillsPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => FilterModal(
-        categories: _categoryOptions.map((category) {
-          return category == 'all' ? 'Todas las categorías' : category;
-        }).toList(),
-        selectedCategory: _filterCategory == 'all' ? 'Todas las categorías' : _filterCategory,
-        selectedDateFilter: 'all',
+        categories: _categoryOptions, // ✅ CORREGIR VARIABLE
+        selectedCategory: _selectedCategory,
+        selectedDateFilter: _selectedDateFilter,
         minAmount: _minAmount,
         maxAmount: _maxAmount,
-        onCategoryChanged: (selected) {
-          String internalValue;
-          if (selected == 'Todas las categorías') {
-            internalValue = 'all';
-          } else {
-            internalValue = selected;
-          }
+        startDate: _startDate,
+        endDate: _endDate,
+        onCategoryChanged: (category) {
           setState(() {
-            _filterCategory = internalValue;
+            _selectedCategory = category;
           });
-          _applyFilters();
+          _applyFilters(); // ✅ AGREGAR
         },
-        onDateFilterChanged: (dateFilter) {},
+        onDateFilterChanged: (dateFilter) {
+          setState(() {
+            _selectedDateFilter = dateFilter;
+          });
+          _applyFilters(); // ✅ AGREGAR
+        },
         onAmountRangeChanged: (min, max) {
           setState(() {
             _minAmount = min;
             _maxAmount = max;
           });
-          _applyFilters();
+          _applyFilters(); // ✅ AGREGAR
+        },
+        onDateRangeChanged: (start, end) {
+          setState(() {
+            _startDate = start;
+            _endDate = end;
+          });
+          _applyFilters(); // ✅ AGREGAR
         },
         onResetFilters: _resetFilters,
-        resultsCount: _filteredBills.length,
+        resultsCount: _filteredBills.length, // ✅ CORREGIR VARIABLE
       ),
     );
   }
 
-  // MÉTODO CORREGIDO: Usar markBillAsPaid en lugar de updateBill
   Future<void> _toggleBillStatus(String billId, bool currentStatus) async {
     try {
       if (currentStatus) {
-        // Si está pagada, marcar como no pagada
         final result = await FirebaseService.markBillAsUnpaid(billId);
         
         if (result['success'] == true) {
@@ -256,7 +303,6 @@ class _BillsPageState extends State<BillsPage> {
           throw Exception(result['error']);
         }
       } else {
-        // Si no está pagada, marcar como pagada por el usuario actual
         final result = await FirebaseService.markBillAsPaid(
           billId, 
           widget.userId, 
@@ -415,9 +461,9 @@ class _BillsPageState extends State<BillsPage> {
                       'category': selectedCategory,
                       'dueDate': selectedDate,
                       'paid': false,
-                      'paidBy': '', // Inicialmente vacío
-                      'paidByName': '', // Inicialmente vacío
-                      'paidAt': null, // Inicialmente nulo
+                      'paidBy': '',
+                      'paidByName': '',
+                      'paidAt': null,
                       'notes': notesController.text,
                       'userId': widget.userId,
                       'userName': widget.userName,
@@ -670,7 +716,7 @@ class _BillsPageState extends State<BillsPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            _filterStatus != 'all' || _filterCategory != 'all' 
+            _filterStatus != 'all' || _selectedCategory != 'all' 
                 ? 'Prueba ajustar los filtros'
                 : 'Agrega tu primera factura',
             style: TextStyle(
@@ -678,7 +724,7 @@ class _BillsPageState extends State<BillsPage> {
             ),
           ),
           const SizedBox(height: 16),
-          if (_filterStatus != 'all' || _filterCategory != 'all')
+          if (_filterStatus != 'all' || _selectedCategory != 'all')
             ElevatedButton(
               onPressed: _resetFilters,
               style: ElevatedButton.styleFrom(
@@ -759,7 +805,7 @@ class _BillsPageState extends State<BillsPage> {
     final dueDateColor = _getDueDateColor(daysUntilDue);
     final dueDateText = _getDueDateText(daysUntilDue);
     final userDisplayName = _getUserDisplayName(bill);
-    final paidByDisplayName = _getPaidByDisplayName(bill); // Nuevo: quién pagó
+    final paidByDisplayName = _getPaidByDisplayName(bill);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -799,7 +845,7 @@ class _BillsPageState extends State<BillsPage> {
             Row(
               children: [
                 Text(
-                  isPaid ? paidByDisplayName : dueDateText, // Mostrar quién pagó si está pagada
+                  isPaid ? paidByDisplayName : dueDateText,
                   style: TextStyle(
                     color: isPaid ? Colors.green : dueDateColor,
                     fontSize: 11,

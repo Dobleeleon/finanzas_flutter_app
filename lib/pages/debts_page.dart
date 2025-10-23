@@ -32,6 +32,10 @@ class _DebtsPageState extends State<DebtsPage> {
   String _filterAssignedTo = 'all';
   double _minAmount = 0;
   double _maxAmount = 10000000;
+  String _selectedCategory = 'all'; // ✅ AÑADIDO
+  String _selectedDateFilter = 'all'; // ✅ AÑADIDO
+  DateTime? _startDate; // ✅ AÑADIDO
+  DateTime? _endDate; // ✅ AÑADIDO
 
   final Map<String, bool> _expandedDebts = {};
 
@@ -39,6 +43,9 @@ class _DebtsPageState extends State<DebtsPage> {
   late String _user1Name;
   late String _user2Name;
   late String _currentUserRole;
+
+  // ✅ AÑADIDO: Categorías para filtros
+  final List<String> categories = ['all', 'personal', 'shared', 'emergency', 'other'];
 
   @override
   void initState() {
@@ -68,7 +75,6 @@ class _DebtsPageState extends State<DebtsPage> {
         )} COP';
   }
 
-  // ✅ CORREGIDO: Método de carga simplificado
   Future<void> _loadDebts() async {
     try {
       setState(() {
@@ -105,6 +111,7 @@ class _DebtsPageState extends State<DebtsPage> {
             'userId': debt['userId'] ?? widget.userId,
             'userName': debt['userName'] ?? widget.userName,
             'paymentHistory': debt['paymentHistory'] ?? [],
+            'category': debt['category'] ?? 'other', // ✅ AÑADIDO
           };
         }).toList();
 
@@ -119,10 +126,9 @@ class _DebtsPageState extends State<DebtsPage> {
           return (b['currentAmount'] ?? 0).compareTo(a['currentAmount'] ?? 0);
         });
 
-        // ✅ CRÍTICO: Actualizar AMBAS listas
         setState(() {
           _debts = debts;
-          _filteredDebts = List.from(_debts); // ✅ Inicializar con todas las deudas
+          _filteredDebts = List.from(_debts);
           _isLoading = false;
         });
 
@@ -160,9 +166,22 @@ class _DebtsPageState extends State<DebtsPage> {
       filtered = filtered.where((d) => d['assignedTo'] == _filterAssignedTo).toList();
     }
 
+    // ✅ AÑADIDO: Filtro por categoría
+    if (_selectedCategory != 'all') {
+      filtered = filtered.where((d) => d['category'] == _selectedCategory).toList();
+    }
+
     filtered = filtered.where((d) {
       return d['currentAmount'] >= _minAmount && d['currentAmount'] <= _maxAmount;
     }).toList();
+
+    // ✅ AÑADIDO: Filtro por rango de fechas
+    if (_startDate != null && _endDate != null) {
+      filtered = filtered.where((d) {
+        final debtDate = d['startDate'];
+        return debtDate.isAfter(_startDate!) && debtDate.isBefore(_endDate!);
+      }).toList();
+    }
 
     setState(() {
       _filteredDebts = filtered;
@@ -231,8 +250,12 @@ class _DebtsPageState extends State<DebtsPage> {
     setState(() {
       _filterStatus = 'all';
       _filterAssignedTo = 'all';
+      _selectedCategory = 'all';
+      _selectedDateFilter = 'all';
       _minAmount = 0;
       _maxAmount = 10000000;
+      _startDate = null;
+      _endDate = null;
     });
     _applyFilters();
   }
@@ -253,31 +276,36 @@ class _DebtsPageState extends State<DebtsPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => FilterModal(
-        categories: assignedOptions.map((option) => displayNames[option]!).toList(),
-        selectedCategory: selectedDisplayName,
-        selectedDateFilter: 'all',
+        categories: categories,
+        selectedCategory: _selectedCategory,
+        selectedDateFilter: _selectedDateFilter,
         minAmount: _minAmount,
         maxAmount: _maxAmount,
-        onCategoryChanged: (selected) {
-          String internalValue = 'all';
-          if (selected == _user1Name) {
-            internalValue = 'user1';
-          } else if (selected == _user2Name) {
-            internalValue = 'user2';
-          } else if (selected == 'Compartida') {
-            internalValue = 'both';
-          }
-          
+        startDate: _startDate,
+        endDate: _endDate,
+        onCategoryChanged: (category) {
           setState(() {
-            _filterAssignedTo = internalValue;
+            _selectedCategory = category;
           });
           _applyFilters();
         },
-        onDateFilterChanged: (dateFilter) {},
+        onDateFilterChanged: (dateFilter) {
+          setState(() {
+            _selectedDateFilter = dateFilter;
+          });
+          _applyFilters();
+        },
         onAmountRangeChanged: (min, max) {
           setState(() {
             _minAmount = min;
             _maxAmount = max;
+          });
+          _applyFilters();
+        },
+        onDateRangeChanged: (start, end) {
+          setState(() {
+            _startDate = start;
+            _endDate = end;
           });
           _applyFilters();
         },
@@ -287,413 +315,399 @@ class _DebtsPageState extends State<DebtsPage> {
     );
   }
 
-  // ✅ MEJORADO: Sistema de pagos con historial
- // ✅ MEJORADO: Modal de registro de pagos con interfaz profesional
-Future<void> _registerPayment(String debtId, double currentAmount) async {
-  final paymentController = TextEditingController();
-  final noteController = TextEditingController();
-  DateTime paymentDate = DateTime.now();
-  TimeOfDay paymentTime = TimeOfDay.now();
+  // ✅ CORREGIDO: Método de registro de pagos
+  Future<void> _registerPayment(String debtId, double currentAmount) async {
+    final paymentController = TextEditingController();
+    final noteController = TextEditingController();
+    DateTime paymentDate = DateTime.now();
+    TimeOfDay paymentTime = TimeOfDay.now();
 
-  await showDialog(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.botonesFondo.withOpacity(0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.botonesFondo.withOpacity(0.1),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.payment,
+                    color: AppTheme.botonesFondo,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Registrar Pago',
+                    style: TextStyle(
+                      color: AppTheme.texto,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.payment,
-                  color: AppTheme.botonesFondo,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Registrar Pago',
-                  style: TextStyle(
-                    color: AppTheme.texto,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.card1Fondo,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Saldo actual:',
+                          style: TextStyle(
+                            color: AppTheme.texto,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          _formatCurrency(currentAmount),
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Información de la deuda actual
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.card1Fondo,
-                    borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Monto del Pago*',
+                    style: TextStyle(
+                      color: AppTheme.texto,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: paymentController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: 'Ingresa el monto a pagar',
+                      hintStyle: TextStyle(color: AppTheme.texto.withOpacity(0.5)),
+                      prefixIcon: Icon(Icons.attach_money, color: AppTheme.botonesFondo),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppTheme.texto.withOpacity(0.3)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppTheme.botonesFondo),
+                      ),
+                      filled: true,
+                      fillColor: AppTheme.card1Fondo,
+                    ),
+                    style: TextStyle(color: AppTheme.texto),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Fecha y Hora del Pago',
+                    style: TextStyle(
+                      color: AppTheme.texto,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
                     children: [
-                      Text(
-                        'Saldo actual:',
-                        style: TextStyle(
-                          color: AppTheme.texto,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text(
-                        _formatCurrency(currentAmount),
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Campo de monto del pago
-                Text(
-                  'Monto del Pago*',
-                  style: TextStyle(
-                    color: AppTheme.texto,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: paymentController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    hintText: 'Ingresa el monto a pagar',
-                    hintStyle: TextStyle(color: AppTheme.texto.withOpacity(0.5)),
-                    prefixIcon: Icon(Icons.attach_money, color: AppTheme.botonesFondo),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppTheme.texto.withOpacity(0.3)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppTheme.botonesFondo),
-                    ),
-                    filled: true,
-                    fillColor: AppTheme.card1Fondo,
-                  ),
-                  style: TextStyle(color: AppTheme.texto),
-                ),
-                const SizedBox(height: 16),
-
-                // Selector de fecha y hora
-                Text(
-                  'Fecha y Hora del Pago',
-                  style: TextStyle(
-                    color: AppTheme.texto,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () async {
-                          final pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate: paymentDate,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2100),
-                            builder: (context, child) {
-                              return Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: ColorScheme.light(
-                                    primary: AppTheme.botonesFondo,
-                                    onPrimary: AppTheme.botonesTexto,
-                                    onSurface: AppTheme.texto,
-                                  ),
-                                  textButtonTheme: TextButtonThemeData(
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: AppTheme.botonesFondo,
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final pickedDate = await showDatePicker(
+                              context: context,
+                              initialDate: paymentDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2100),
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: ColorScheme.light(
+                                      primary: AppTheme.botonesFondo,
+                                      onPrimary: AppTheme.botonesTexto,
+                                      onSurface: AppTheme.texto,
+                                    ),
+                                    textButtonTheme: TextButtonThemeData(
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: AppTheme.botonesFondo,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                child: child!,
-                              );
-                            },
-                          );
-                          if (pickedDate != null) {
-                            setState(() {
-                              paymentDate = DateTime(
-                                pickedDate.year,
-                                pickedDate.month,
-                                pickedDate.day,
-                                paymentTime.hour,
-                                paymentTime.minute,
-                              );
-                            });
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.card1Fondo,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.texto.withOpacity(0.3)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _formatDate(paymentDate),
-                                style: TextStyle(
-                                  color: AppTheme.texto,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Icon(
-                                Icons.calendar_today,
-                                color: AppTheme.botonesFondo,
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () async {
-                          final pickedTime = await showTimePicker(
-                            context: context,
-                            initialTime: paymentTime,
-                            builder: (context, child) {
-                              return Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: ColorScheme.light(
-                                    primary: AppTheme.botonesFondo,
-                                    onPrimary: AppTheme.botonesTexto,
-                                    onSurface: AppTheme.texto,
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (pickedDate != null) {
+                              setState(() {
+                                paymentDate = DateTime(
+                                  pickedDate.year,
+                                  pickedDate.month,
+                                  pickedDate.day,
+                                  paymentTime.hour,
+                                  paymentTime.minute,
+                                );
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppTheme.card1Fondo,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppTheme.texto.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _formatDate(paymentDate),
+                                  style: TextStyle(
+                                    color: AppTheme.texto,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                child: child!,
-                              );
-                            },
-                          );
-                          if (pickedTime != null) {
-                            setState(() {
-                              paymentTime = pickedTime;
-                              paymentDate = DateTime(
-                                paymentDate.year,
-                                paymentDate.month,
-                                paymentDate.day,
-                                pickedTime.hour,
-                                pickedTime.minute,
-                              );
-                            });
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.card1Fondo,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.texto.withOpacity(0.3)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${paymentTime.hour.toString().padLeft(2, '0')}:${paymentTime.minute.toString().padLeft(2, '0')}',
-                                style: TextStyle(
-                                  color: AppTheme.texto,
-                                  fontWeight: FontWeight.w500,
+                                Icon(
+                                  Icons.calendar_today,
+                                  color: AppTheme.botonesFondo,
+                                  size: 20,
                                 ),
-                              ),
-                              Icon(
-                                Icons.access_time,
-                                color: AppTheme.botonesFondo,
-                                size: 20,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Campo de notas
-                Text(
-                  'Notas (Opcional)',
-                  style: TextStyle(
-                    color: AppTheme.texto,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: noteController,
-                  decoration: InputDecoration(
-                    hintText: 'Ej: Pago parcial, transferencia, etc.',
-                    hintStyle: TextStyle(color: AppTheme.texto.withOpacity(0.5)),
-                    prefixIcon: Icon(Icons.note, color: AppTheme.botonesFondo),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppTheme.texto.withOpacity(0.3)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppTheme.botonesFondo),
-                    ),
-                    filled: true,
-                    fillColor: AppTheme.card1Fondo,
-                  ),
-                  maxLines: 3,
-                  style: TextStyle(color: AppTheme.texto),
-                ),
-                const SizedBox(height: 8),
-
-                // Información de quién registra el pago
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.botonesFondo.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.person,
-                        color: AppTheme.botonesFondo,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          'Registrado por: ${widget.userName}',
-                          style: TextStyle(
-                            color: AppTheme.texto.withOpacity(0.8),
-                            fontSize: 12,
+                        child: InkWell(
+                          onTap: () async {
+                            final pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime: paymentTime,
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: ColorScheme.light(
+                                      primary: AppTheme.botonesFondo,
+                                      onPrimary: AppTheme.botonesTexto,
+                                      onSurface: AppTheme.texto,
+                                    ),
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (pickedTime != null) {
+                              setState(() {
+                                paymentTime = pickedTime;
+                                paymentDate = DateTime(
+                                  paymentDate.year,
+                                  paymentDate.month,
+                                  paymentDate.day,
+                                  pickedTime.hour,
+                                  pickedTime.minute,
+                                );
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppTheme.card1Fondo,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppTheme.texto.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${paymentTime.hour.toString().padLeft(2, '0')}:${paymentTime.minute.toString().padLeft(2, '0')}',
+                                  style: TextStyle(
+                                    color: AppTheme.texto,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.access_time,
+                                  color: AppTheme.botonesFondo,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            // Botón Cancelar
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.texto.withOpacity(0.7),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Notas (Opcional)',
+                    style: TextStyle(
+                      color: AppTheme.texto,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: noteController,
+                    decoration: InputDecoration(
+                      hintText: 'Ej: Pago parcial, transferencia, etc.',
+                      hintStyle: TextStyle(color: AppTheme.texto.withOpacity(0.5)),
+                      prefixIcon: Icon(Icons.note, color: AppTheme.botonesFondo),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppTheme.texto.withOpacity(0.3)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppTheme.botonesFondo),
+                      ),
+                      filled: true,
+                      fillColor: AppTheme.card1Fondo,
+                    ),
+                    maxLines: 3,
+                    style: TextStyle(color: AppTheme.texto),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.botonesFondo.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.person,
+                          color: AppTheme.botonesFondo,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Registrado por: ${widget.userName}',
+                            style: TextStyle(
+                              color: AppTheme.texto.withOpacity(0.8),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              child: const Text('Cancelar'),
             ),
-
-            // Botón Registrar Pago
-            ElevatedButton(
-              onPressed: () async {
-                final paymentAmount = double.tryParse(paymentController.text) ?? 0;
-                if (paymentAmount > 0 && paymentAmount <= currentAmount) {
-                  try {
-                    final newAmount = currentAmount - paymentAmount;
-                    final isPaid = newAmount <= 0;
-                    
-                    // ✅ MEJORADO: Registrar pago con fecha específica
-                    final paymentRecord = {
-                      'paymentDate': Timestamp.fromDate(paymentDate), // ✅ Fecha específica del pago
-                      'amount': paymentAmount,
-                      'paidBy': widget.userId,
-                      'paidByName': widget.userName,
-                      'notes': noteController.text,
-                      'remainingBalance': newAmount,
-                    };
-
-                    final updates = {
-                      'currentAmount': newAmount,
-                      'status': isPaid ? 'paid' : 'pending',
-                      'updatedAt': FieldValue.serverTimestamp(),
-                      'paymentHistory': FieldValue.arrayUnion([paymentRecord]),
-                    };
-
-                    final result = await FirebaseService.updateDebt(debtId, updates);
-                    
-                    if (result['success'] == true) {
-                      _loadDebts();
-                      Navigator.pop(context);
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.texto.withOpacity(0.7),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final paymentAmount = double.tryParse(paymentController.text) ?? 0;
+                  if (paymentAmount > 0 && paymentAmount <= currentAmount) {
+                    try {
+                      final newAmount = currentAmount - paymentAmount;
+                      final isPaid = newAmount <= 0;
                       
+                      final paymentRecord = {
+                        'paymentDate': Timestamp.fromDate(paymentDate),
+                        'amount': paymentAmount,
+                        'paidBy': widget.userId,
+                        'paidByName': widget.userName,
+                        'notes': noteController.text,
+                        'remainingBalance': newAmount,
+                      };
+
+                      final updates = {
+                        'currentAmount': newAmount,
+                        'status': isPaid ? 'paid' : 'pending',
+                        'updatedAt': FieldValue.serverTimestamp(),
+                        'paymentHistory': FieldValue.arrayUnion([paymentRecord]),
+                      };
+
+                      final result = await FirebaseService.updateDebt(debtId, updates);
+                      
+                      if (result['success'] == true) {
+                        _loadDebts();
+                        Navigator.pop(context);
+                        
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('✅ Pago de ${_formatCurrency(paymentAmount)} registrado${isPaid ? ' - ¡Deuda pagada!' : ''}'),
+                              backgroundColor: Colors.green,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      } else {
+                        throw Exception(result['error']);
+                      }
+                    } catch (e) {
+                      print('❌ Error al registrar pago: $e');
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('✅ Pago de ${_formatCurrency(paymentAmount)} registrado${isPaid ? ' - ¡Deuda pagada!' : ''}'),
-                            backgroundColor: Colors.green,
-                            duration: const Duration(seconds: 3),
+                            content: Text('❌ Error al registrar pago: $e'),
+                            backgroundColor: Colors.red,
                           ),
                         );
                       }
-                    } else {
-                      throw Exception(result['error']);
                     }
-                  } catch (e) {
-                    print('❌ Error al registrar pago: $e');
+                  } else {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('❌ Error al registrar pago: $e'),
-                          backgroundColor: Colors.red,
+                          content: Text('⚠️ Monto inválido. Debe ser mayor a 0 y menor o igual a ${_formatCurrency(currentAmount)}'),
+                          backgroundColor: Colors.orange,
                         ),
                       );
                     }
                   }
-                } else {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('⚠️ Monto inválido. Debe ser mayor a 0 y menor o igual a ${_formatCurrency(currentAmount)}'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.botonesFondo,
-                foregroundColor: AppTheme.botonesTexto,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.botonesFondo,
+                  foregroundColor: AppTheme.botonesTexto,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
+                child: const Text('Registrar Pago'),
               ),
-              child: const Text('Registrar Pago'),
-            ),
-          ],
-        );
-      },
-    ),
-  );
-}
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   Future<void> _applyInterest(String debtId, String debtTitle, double currentAmount, double interestRate) async {
     if (interestRate <= 0) {
@@ -789,8 +803,6 @@ Future<void> _registerPayment(String debtId, double currentAmount) async {
     );
   }
 
-  // ... (los métodos _showAddDebtDialog y _deleteDebt se mantienen igual)
-
   Future<void> _showAddDebtDialog() async {
     final titleController = TextEditingController();
     final amountController = TextEditingController();
@@ -799,6 +811,7 @@ Future<void> _registerPayment(String debtId, double currentAmount) async {
     final notesController = TextEditingController();
 
     String assignedTo = 'both';
+    String category = 'other'; // ✅ AÑADIDO
     DateTime dueDate = DateTime.now().add(const Duration(days: 30));
 
     await showDialog(
@@ -845,6 +858,26 @@ Future<void> _registerPayment(String debtId, double currentAmount) async {
                       labelText: 'Acreedor*',
                       border: OutlineInputBorder(),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  // ✅ AÑADIDO: Selector de categoría
+                  DropdownButtonFormField<String>(
+                    value: category,
+                    decoration: const InputDecoration(
+                      labelText: 'Categoría',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      DropdownMenuItem(value: 'personal', child: const Text('Personal')),
+                      DropdownMenuItem(value: 'shared', child: const Text('Compartida')),
+                      DropdownMenuItem(value: 'emergency', child: const Text('Emergencia')),
+                      DropdownMenuItem(value: 'other', child: const Text('Otra')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        category = value!;
+                      });
+                    },
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -935,6 +968,7 @@ Future<void> _registerPayment(String debtId, double currentAmount) async {
                       'interestRate': interestRate,
                       'creditor': creditorController.text,
                       'assignedTo': assignedTo,
+                      'category': category, // ✅ AÑADIDO
                       'status': 'pending',
                       'notes': notesController.text,
                       'dueDate': dueDate,
@@ -1230,7 +1264,6 @@ Future<void> _registerPayment(String debtId, double currentAmount) async {
     );
   }
 
-  // ✅ MEJORADO: Widget de deuda con historial de pagos
   Widget _buildDebtItem(Map<String, dynamic> debt) {
     final currentAmount = debt['currentAmount'] ?? 0.0;
     final originalAmount = debt['originalAmount'] ?? 0.0;
@@ -1352,7 +1385,6 @@ Future<void> _registerPayment(String debtId, double currentAmount) async {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Información detallada
                 _buildDebtDetailItem('Monto Original', _formatCurrency(originalAmount)),
                 _buildDebtDetailItem('Interés Acumulado', _formatCurrency(accumulatedInterest)),
                 _buildDebtDetailItem('Meses Transcurridos', '$monthsPassed meses'),
@@ -1363,7 +1395,6 @@ Future<void> _registerPayment(String debtId, double currentAmount) async {
                 if (debt['notes'] != null && debt['notes'].isNotEmpty)
                   _buildDebtDetailItem('Notas', debt['notes']),
                 
-                // ✅ NUEVO: Historial de pagos
                 if (paymentHistory.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -1437,7 +1468,6 @@ Future<void> _registerPayment(String debtId, double currentAmount) async {
                 
                 const SizedBox(height: 16),
                 
-                // Botones de acción
                 if (!isPaid) Row(
                   children: [
                     Expanded(
@@ -1580,7 +1610,12 @@ Future<void> _registerPayment(String debtId, double currentAmount) async {
                 ),
               ],
             ),
-
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddDebtDialog,
+        backgroundColor: AppTheme.botonesFondo,
+        foregroundColor: AppTheme.botonesTexto,
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
