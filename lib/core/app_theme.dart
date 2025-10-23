@@ -32,7 +32,8 @@ class AppTheme {
           fontWeight: FontWeight.bold,
         ),
       ),
-      cardTheme: CardTheme(
+      // ✅ CORRECCIÓN - Usar copyWith para compatibilidad
+      cardTheme: ThemeData.light().cardTheme.copyWith(
         color: card1Fondo,
         elevation: 2,
         shape: RoundedRectangleBorder(
