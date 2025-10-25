@@ -1,0 +1,57 @@
+name: Build APK Emergencia
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Flutter (Versión Ultra Estable)
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.13.9'  # Versión LTS
+        channel: 'stable'
+        
+    - name: Forzar dependencias compatibles
+      run: |
+        # Crear pubspec temporal con versiones garantizadas
+        cat > pubspec_temp.yaml << 'EOF'
+name: finanzas_pareja
+description: Aplicación de finanzas para parejas
+publish_to: 'none'
+version: 1.0.0+1
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^2.15.0
+  firebase_auth: ^4.8.0
+  cloud_firestore: ^4.7.0
+  shared_preferences: ^2.2.0
+  cupertino_icons: ^1.0.2
+  provider: ^6.1.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+flutter:
+  uses-material-design: true
+EOF
+        mv pubspec_temp.yaml pubspec.yaml
+        
+    - name: Instalar y construir
+      run: |
+        flutter clean
+        flutter pub get
+        flutter build apk --release
+        
+    - name: Subir APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: App-Finanzas-Emergencia
+        path: build/app/outputs/flutter-apk/app-release.apk
