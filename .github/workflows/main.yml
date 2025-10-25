@@ -1,41 +1,44 @@
-name: Build Android APK
+name: Build APK with Multidex
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # Permite ejecutar manualmente
+on: [workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
-
+      uses: actions/checkout@v4
+      
     - name: Setup Java
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
-        distribution: 'zulu'
-        java-version: '11'
-
+        distribution: 'temurin'
+        java-version: '17'
+      
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.13.0'  # Ajusta según tu versión
+        flutter-version: '3.16.9'
         channel: 'stable'
-
+        
     - name: Install dependencies
       run: flutter pub get
-
+      
     - name: Build APK
-      run: flutter build apk --release --no-tree-shake-icons
-
+      run: |
+        echo "🏗️ Building APK with multidex support..."
+        flutter build apk --release --verbose
+        
     - name: Upload APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: app-release
+        name: App-Finanzas-Familiar
         path: build/app/outputs/flutter-apk/app-release.apk
-        retention-days: 30
+        retention-days: 90
+        
+    - name: Show APK info
+      run: |
+        echo "✅ APK generado exitosamente!"
+        echo "📱 Archivo: build/app/outputs/flutter-apk/app-release.apk"
+        echo "📦 Tamaño: $(du -h build/app/outputs/flutter-apk/app-release.apk | cut -f1)"
