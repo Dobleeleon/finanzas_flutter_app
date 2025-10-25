@@ -1,0 +1,44 @@
+name: Build APK Final Solution
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.16.9'
+        
+    - name: Install dependencies
+      run: flutter pub get
+      
+    - name: Clean build
+      run: flutter clean
+      
+    - name: Build APK
+      run: |
+        # Construir en modo release que maneja mejor multidex
+        flutter build apk --release
+        
+    - name: Verify APK
+      run: |
+        if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+          echo "✅ APK generado exitosamente!"
+          echo "📦 Tamaño: $(du -h build/app/outputs/flutter-apk/app-release.apk | cut -f1)"
+        else
+          echo "❌ Error: APK no generado"
+          ls -la build/app/outputs/flutter-apk/
+          exit 1
+        fi
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: App-Finanzas-Familiar
+        path: build/app/outputs/flutter-apk/app-release.apk
