@@ -1,44 +1,49 @@
-name: Build APK Final Solution
+name: Build APK Definitivo
 
-on: [workflow_dispatch]
+on: 
+  workflow_dispatch:  # Solo se ejecuta manualmente
 
 jobs:
   build:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
+    - name: 📥 Checkout código
       uses: actions/checkout@v4
       
-    - name: Setup Flutter
+    - name: 🛠️ Setup Flutter
       uses: subosito/flutter-action@v2
       with:
         flutter-version: '3.16.9'
         
-    - name: Install dependencies
-      run: flutter pub get
-      
-    - name: Clean build
-      run: flutter clean
-      
-    - name: Build APK
+    - name: 📦 Instalar dependencias
       run: |
-        # Construir en modo release que maneja mejor multidex
-        flutter build apk --release
+        echo "🔄 Limpiando cache..."
+        flutter clean
+        echo "📥 Descargando dependencias..."
+        flutter pub get
+        echo "✅ Dependencias instaladas"
         
-    - name: Verify APK
+    - name: 🏗️ Construir APK
+      run: |
+        echo "🚀 Construyendo APK en modo RELEASE..."
+        flutter build apk --release --verbose
+        
+    - name: ✅ Verificar APK
       run: |
         if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
-          echo "✅ APK generado exitosamente!"
+          echo "🎉 ¡APK GENERADO EXITOSAMENTE!"
+          echo "📱 Archivo: build/app/outputs/flutter-apk/app-release.apk"
           echo "📦 Tamaño: $(du -h build/app/outputs/flutter-apk/app-release.apk | cut -f1)"
         else
-          echo "❌ Error: APK no generado"
+          echo "❌ Error: APK no encontrado"
           ls -la build/app/outputs/flutter-apk/
           exit 1
         fi
         
-    - name: Upload APK
+    - name: 📤 Subir APK
       uses: actions/upload-artifact@v4
       with:
-        name: App-Finanzas-Familiar
+        name: App-Finanzas-Pareja
         path: build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 90
