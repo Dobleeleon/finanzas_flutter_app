@@ -1,4 +1,4 @@
-name: Build APK Definitivo
+name: Build APK Garantizado
 
 on: [workflow_dispatch]
 
@@ -7,26 +7,21 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
+    - name: Checkout
       uses: actions/checkout@v4
       
-    - name: Setup Android SDK
+    - name: Setup Android
       uses: android-actions/setup-android@v3
       
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.16.9'
-        
-    - name: SOBREESCRIBIR pubspec.yaml con versiones compatibles
+      
+    - name: Crear proyecto TEMPORAL compatible
       run: |
-        # ELIMINAR el pubspec.yaml viejo
-        rm -f pubspec.yaml
-        
-        # CREAR NUEVO pubspec.yaml compatible
+        # Crear nuevo pubspec.yaml desde cero
         cat > pubspec.yaml << 'EOF'
-name: finanzas_pareja
-description: Aplicación de finanzas para parejas
+name: finanzas_app
+description: App de finanzas
 publish_to: 'none'
 version: 1.0.0+1
 environment:
@@ -34,36 +29,27 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  firebase_core: "2.17.0"
-  firebase_auth: "4.8.0"
-  cloud_firestore: "4.9.0"
-  shared_preferences: "2.2.2"
-  cupertino_icons: "1.0.2"
-  provider: "6.1.1"
+  firebase_core: "2.15.0"
+  firebase_auth: "4.6.1"
+  cloud_firestore: "4.5.1"
+  shared_preferences: "2.1.2"
+  cupertino_icons: "1.0.5"
+  provider: "6.1.0"
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: "2.0.3"
 flutter:
   uses-material-design: true
 EOF
         
-        # Mostrar que se creó correctamente
-        echo "✅ NUEVO pubspec.yaml creado:"
-        cat pubspec.yaml | grep firebase
-        
-    - name: Instalar dependencias NUEVAS
+    - name: Build
       run: |
         flutter clean
         flutter pub get
-        echo "✅ Dependencias instaladas:"
-        flutter pub deps | grep firebase
+        flutter build apk --release
         
-    - name: Construir APK
-      run: flutter build apk --release
-        
-    - name: Subir APK
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: App-Finanzas-Definitiva
+        name: App-Finanzas
         path: build/app/outputs/flutter-apk/app-release.apk
