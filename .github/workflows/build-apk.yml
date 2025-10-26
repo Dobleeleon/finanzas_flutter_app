@@ -1,45 +1,40 @@
-name: 🏗️ Build APK
+name: Build APK
 
-on: 
-  workflow_dispatch:
-  push:
-    branches: [ main, master ]
+on: [workflow_dispatch, push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-      
-    - name: 🤖 Setup Android SDK
-      uses: android-actions/setup-android@v3
-      
-    - name: 🐦 Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.13.9'
+      - name: Checkout code
+        uses: actions/checkout@v4
         
-    - name: 📝 Configurar proyecto
-      run: |
-        echo "🔧 Configurando versiones compatibles..."
-        cat > pubspec.yaml << 'EOF'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.9'
+          
+      - name: Create compatible pubspec
+        run: |
+          cat > pubspec.yaml << 'EOF'
 name: finanzas_pareja
-description: App de finanzas para parejas
+description: App de finanzas
 publish_to: 'none'
 version: 1.0.0+1
 environment:
-  sdk: '>=2.19.0 <4.0.0'
+  sdk: '>=3.0.0 <4.0.0'
 dependencies:
   flutter:
     sdk: flutter
-  firebase_core: "2.15.0"
-  firebase_auth: "4.6.1"
-  cloud_firestore: "4.5.0"
-  shared_preferences: "2.1.2"
-  cupertino_icons: "1.0.5"
-  provider: "6.1.0"
+  firebase_core: "2.24.0"
+  firebase_auth: "4.13.0" 
+  cloud_firestore: "4.13.3"
+  shared_preferences: "2.2.2"
+  cupertino_icons: "1.0.2"
+  provider: "6.1.1"
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -47,18 +42,17 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 EOF
+          
+      - name: Install dependencies
+        run: |
+          flutter clean
+          flutter pub get
+          
+      - name: Build APK
+        run: flutter build apk --release
         
-    - name: 📦 Instalar dependencias
-      run: |
-        flutter clean
-        flutter pub get
-        
-    - name: 🏗️ Construir APK
-      run: flutter build apk --release
-        
-    - name: 📤 Subir APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: App-Finanzas-Familiar
-        path: build/app/outputs/flutter-apk/app-release.apk
-        retention-days: 30
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-Finanzas
+          path: build/app/outputs/flutter-apk/app-release.apk
