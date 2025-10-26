@@ -1,0 +1,69 @@
+name: 🏗️ Build APK
+
+on: 
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: 'Log level'     
+        required: true
+        default: 'warning'
+        type: choice
+        options:
+        - info
+        - warning
+        - debug
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🤖 Setup Android
+      uses: android-actions/setup-android@v3
+      
+    - name: 🐦 Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.16.9'
+        
+    - name: 📝 Crear pubspec compatible
+      run: |
+        echo "🔧 Creando pubspec.yaml compatible..."
+        cat > pubspec.yaml << 'EOF'
+name: finanzas_app
+description: App de finanzas para parejas
+publish_to: 'none'
+version: 1.0.0+1
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: "2.15.0"
+  firebase_auth: "4.6.1"
+  cloud_firestore: "4.5.1"
+  shared_preferences: "2.1.2"
+  cupertino_icons: "1.0.5"
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+EOF
+        
+    - name: 📦 Instalar dependencias
+      run: |
+        flutter clean
+        flutter pub get
+        
+    - name: 🏗️ Construir APK
+      run: flutter build apk --release
+        
+    - name: 📤 Subir APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: App-Finanzas
+        path: build/app/outputs/flutter-apk/app-release.apk
