@@ -1,20 +1,32 @@
-name: Build APK
+name: 🏗️ Build APK
 
-on: [workflow_dispatch]
+on: 
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
-      - uses: android-actions/setup-android@v3
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.13.9'
-      - run: |
-          cat > pubspec.yaml << 'EOF'
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🤖 Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: 🐦 Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.13.9'
+        
+    - name: 📝 Configurar proyecto
+      run: |
+        echo "🔧 Configurando versiones compatibles..."
+        cat > pubspec.yaml << 'EOF'
 name: finanzas_pareja
-description: App de finanzas
+description: App de finanzas para parejas
 publish_to: 'none'
 version: 1.0.0+1
 environment:
@@ -35,10 +47,18 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 EOF
-          flutter clean
-          flutter pub get
-          flutter build apk --release
-      - uses: actions/upload-artifact@v4
-        with:
-          name: App-Finanzas
-          path: build/app/outputs/flutter-apk/app-release.apk
+        
+    - name: 📦 Instalar dependencias
+      run: |
+        flutter clean
+        flutter pub get
+        
+    - name: 🏗️ Construir APK
+      run: flutter build apk --release
+        
+    - name: 📤 Subir APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: App-Finanzas-Familiar
+        path: build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
