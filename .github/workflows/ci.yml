@@ -1,4 +1,4 @@
-name: Build APK
+name: Flutter Build
 on: [workflow_dispatch]
 jobs:
   build:
@@ -7,6 +7,28 @@ jobs:
       - uses: actions/checkout@v4
       - uses: android-actions/setup-android@v3
       - uses: subosito/flutter-action@v2
+      - run: |
+          cat > pubspec.yaml << 'EOF'
+name: finanzas_app
+description: App
+publish_to: none
+version: 1.0.0+1
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: 2.24.0
+  firebase_auth: 4.13.0
+  cloud_firestore: 4.13.3
+  shared_preferences: 2.2.2
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+EOF
+      - run: flutter clean
       - run: flutter pub get
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
