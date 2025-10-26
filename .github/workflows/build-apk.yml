@@ -1,0 +1,44 @@
+name: Build APK
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.13.9'
+      - run: |
+          cat > pubspec.yaml << 'EOF'
+name: finanzas_pareja
+description: App de finanzas
+publish_to: 'none'
+version: 1.0.0+1
+environment:
+  sdk: '>=2.19.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: "2.15.0"
+  firebase_auth: "4.6.1"
+  cloud_firestore: "4.5.0"
+  shared_preferences: "2.1.2"
+  cupertino_icons: "1.0.5"
+  provider: "6.1.0"
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: "2.0.3"
+flutter:
+  uses-material-design: true
+EOF
+          flutter clean
+          flutter pub get
+          flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: App-Finanzas
+          path: build/app/outputs/flutter-apk/app-release.apk
